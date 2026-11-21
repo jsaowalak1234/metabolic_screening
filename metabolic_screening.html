@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ระบบคัดกรองความเสี่ยงโรคกลุ่ม Metabolic</title>
+<style>
+:root{--navy:#15324b;--blue:#176b87;--teal:#1c8a83;--bg:#f3f7fa;--line:#dbe5ec;--muted:#607486;--danger:#b54747}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#203342;font-family:Tahoma,"Noto Sans Thai",sans-serif;font-size:15px}
+header{background:linear-gradient(120deg,#15324b,#176b87);color:white;padding:22px max(18px,calc((100% - 1180px)/2))}
+header h1{font-size:23px;margin:0 0 5px}header p{margin:0;color:#dcecf2;font-size:13px}
+main{max-width:1180px;margin:22px auto;padding:0 16px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px}
+button,.btn{border:0;border-radius:9px;padding:10px 15px;background:var(--blue);color:white;cursor:pointer;font:inherit}
+button.secondary{background:#e6eef3;color:#24445a}button.danger{background:#a94141}button:hover{filter:brightness(.96)}
+.panel{background:white;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:15px;box-shadow:0 3px 12px #17344b0a}
+.panel h2{font-size:17px;color:var(--navy);margin:0 0 14px;padding-bottom:9px;border-bottom:1px solid var(--line)}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:5px}.field.wide{grid-column:span 2}.field.full{grid-column:1/-1}
+label{font-size:13px;color:#43596a}input,select,textarea{width:100%;padding:9px 10px;border:1px solid #cbd8e1;border-radius:8px;background:#fff;font:inherit;color:#203342;min-height:39px}
+textarea{min-height:75px;resize:vertical}input:focus,select:focus,textarea:focus{outline:2px solid #9ed4df;border-color:var(--blue)}
+.options{display:flex;flex-wrap:wrap;gap:10px 18px;padding:5px 0}.options label{display:flex;align-items:center;gap:6px;font-size:14px}.options input{width:auto;min-height:0}
+.sub{font-weight:bold;color:#38566b;margin:5px 0 2px}.muted{color:var(--muted);font-size:12px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}.status{padding:10px;border-radius:8px;background:#edf6f8;color:#24566a;margin-bottom:12px;display:none}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}th{background:#f0f5f8;color:#355268}
+.tablewrap{overflow:auto}.smallbtn{padding:6px 9px;font-size:12px;margin:2px}.hide{display:none!important}
+.note{background:#fff8e8;border:1px solid #f0dfb8;color:#755a20;padding:11px;border-radius:9px;font-size:13px;line-height:1.55}
+@media(max-width:850px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.field.wide{grid-column:span 1}header h1{font-size:19px}main{padding:0 10px}.panel{padding:13px}}
+@media print{header,.toolbar,.actions,.no-print,#recordsPanel{display:none!important}body{background:white}.panel{box-shadow:none;break-inside:avoid}main{max-width:none;margin:0}}
+</style>
+</head>
+<body>
+<header><h1>ระบบบันทึกการตรวจคัดกรองยืนยันความเสี่ยงต่อภาวะโรคกลุ่ม Metabolic</h1><p>แบบบันทึกข้อมูลสุขภาพ • จัดเก็บในเครื่องหรือเชื่อมต่อ Google Sheets ผ่าน Google Apps Script</p></header>
+<main>
+<div class="toolbar no-print">
+<button id="newBtn">＋ เพิ่มรายการใหม่</button>
+<button class="secondary" id="exportBtn">ส่งออก CSV</button>
+<button class="secondary" id="printBtn">พิมพ์แบบบันทึก</button>
+<button class="secondary" id="syncBtn">โหลดข้อมูลจาก Google Sheets</button>
+<span class="muted" id="modeLabel">โหมดจัดเก็บในเครื่อง (Local)</span>
+</div>
+<div id="status" class="status"></div>
+<form id="screenForm">
+<input type="hidden" id="recordId">
+<section class="panel">
+<h2>ข้อมูลทั่วไป</h2>
+<div class="grid">
+<div class="field"><label>สิทธิการรักษา</label><select id="insurance"><option value="">-- เลือก --</option><option>ผู้ประกันตน</option><option>ข้าราชการ</option><option>สิทธิประกันสุขภาพถ้วนหน้า</option></select></div>
+<div class="field"><label>เลขบัตรประชาชน</label><input id="citizenId" maxlength="13" inputmode="numeric" placeholder="13 หลัก"></div>
+<div class="field"><label>ชื่อ</label><input id="firstName" required></div><div class="field"><label>นามสกุล</label><input id="lastName" required></div>
+<div class="field"><label>อายุ (ปี)</label><input id="age" type="number" min="0"></div><div class="field"><label>บ้านเลขที่</label><input id="houseNo"></div><div class="field"><label>หมู่</label><input id="villageNo"></div><div class="field"><label>ตำบล/แขวง</label><input id="subdistrict"></div>
+<div class="field"><label>อำเภอ/เขต</label><input id="district"></div><div class="field"><label>จังหวัด</label><input id="province"></div><div class="field"><label>เบอร์โทรศัพท์</label><input id="phone" type="tel"></div><div class="field"><label>วันที่ตรวจคัดกรอง</label><input id="screenDate" type="date"></div>
+<div class="field wide"><label>หน่วยบริการที่ตรวจ</label><input id="serviceUnit"></div>
+</div></section>
+
+<section class="panel"><h2>1. ข้อมูลครอบครัว</h2>
+<div class="sub">1.1 บิดาหรือมารดามีประวัติเจ็บป่วยด้วยโรคใด (เลือกได้หลายข้อ)</div><div class="options" id="parentDiseases"></div>
+<div class="grid"><div class="field"><label>ระบุว่าเป็นบิดาหรือมารดา / รายละเอียดอื่น ๆ</label><input id="parentDetails"></div><div class="field"><label>MI: เพศ / อายุ</label><input id="parentMi"></div><div class="field"><label>Stroke: เพศ / อายุ</label><input id="parentStroke"></div></div>
+<div class="sub">1.2 พี่น้องสายตรงมีประวัติเจ็บป่วยด้วยโรคใด (เลือกได้หลายข้อ)</div><div class="options" id="siblingDiseases"></div>
+<div class="grid"><div class="field"><label>รายละเอียดอื่น ๆ</label><input id="siblingDetails"></div><div class="field"><label>MI: เพศ / อายุ</label><input id="siblingMi"></div><div class="field"><label>Stroke: เพศ / อายุ</label><input id="siblingStroke"></div></div>
+</section>
+
+<section class="panel"><h2>2. ประวัติการเจ็บป่วยหรืออาการ</h2><div class="grid" id="historyFields"></div></section>
+<section class="panel"><h2>3. กรณีมีประวัติเจ็บป่วยตามข้อ 2 ปฏิบัติตนอย่างไร</h2><div class="options" id="treatmentOptions"></div></section>
+<section class="panel"><h2>4. ประวัติการสูบบุหรี่</h2>
+<div class="options" id="smokeOptions"></div><div class="grid">
+<div class="field"><label>จำนวนมวน/วัน</label><input id="cigarettesPerDay"></div><div class="field"><label>Pack-year</label><input id="packYear"></div><div class="field"><label>ชนิดบุหรี่</label><input id="cigaretteType"></div><div class="field"><label>ระยะเวลา (ปี)</label><input id="smokingYears" type="number" min="0"></div>
+</div></section>
+<section class="panel"><h2>5. ประวัติการดื่มเครื่องดื่มที่มีแอลกอฮอล์</h2><div class="options" id="alcoholOptions"></div><div class="field"><label>ความถี่ / รายละเอียด</label><input id="alcoholDetails" placeholder="เช่น ... ครั้ง/สัปดาห์"></div></section>
+<section class="panel"><h2>6. การออกกำลังกาย / เล่นกีฬา</h2><div class="options" id="exerciseOptions"></div></section>
+<section class="panel"><h2>7. อาหารที่ชอบ (เลือกได้มากกว่า 1 ข้อ)</h2><div class="options" id="foodOptions"></div></section>
+<section class="panel"><h2>8. การตรวจร่างกาย</h2><div class="grid">
+<div class="field"><label>น้ำหนัก (กก.)</label><input id="weight" type="number" step="0.1" min="0"></div><div class="field"><label>ส่วนสูง (ซม.)</label><input id="height" type="number" step="0.1" min="0"></div>
+<div class="field"><label>BMI (คำนวณอัตโนมัติ)</label><input id="bmi" readonly></div><div class="field"><label>เส้นรอบเอว (ซม.)</label><input id="waist" type="number" step="0.1" min="0"></div>
+<div class="field"><label>BP ครั้งที่ 1 (ตัวบน)</label><input id="bp1sys" type="number"></div><div class="field"><label>BP ครั้งที่ 1 (ตัวล่าง)</label><input id="bp1dia" type="number"></div>
+<div class="field"><label>BP ครั้งที่ 2 (ตัวบน)</label><input id="bp2sys" type="number"></div><div class="field"><label>BP ครั้งที่ 2 (ตัวล่าง)</label><input id="bp2dia" type="number"></div>
+<div class="field"><label>ค่า BP เฉลี่ย (ตัวบน)</label><input id="bpAvgSys" readonly></div><div class="field"><label>ค่า BP เฉลี่ย (ตัวล่าง)</label><input id="bpAvgDia" readonly></div>
+<div class="field"><label>FBS (mg/dL หรือ mg%)</label><input id="fbs" type="number" step="0.1"></div><div class="field"><label>Post-prandial blood sugar (mg/dL)</label><input id="ppbs" type="number" step="0.1"></div>
+<div class="field"><label>หลังรับประทานอาหาร (ชั่วโมง)</label><input id="ppbsHours" type="number" step="0.5"></div>
+</div><p class="muted">ค่า BMI และความดันเฉลี่ยคำนวณจากข้อมูลที่กรอกเท่านั้น ไม่ใช้แทนการวินิจฉัย</p></section>
+<section class="panel"><h2>9. การตรวจ Lipid Profile</h2><p class="muted">ในแบบฟอร์มต้นฉบับระบุกรณีอายุ 35 ปีขึ้นไป มีประวัติเสี่ยง และ BMI มากกว่า 25</p>
+<div class="options" id="lipidDone"></div><div class="grid" id="lipidFields"></div></section>
+<section class="panel"><h2>10. สรุปผลการตรวจคัดกรองความเสี่ยงโรค Metabolic</h2>
+<div class="sub">ผลการคัดกรอง (เลือกตามผลประเมินของผู้ให้บริการ)</div><div class="options" id="screenResult"></div>
+<div class="sub">ประเภทโรค/ความเสี่ยง (เลือกได้หลายข้อ)</div><div class="options" id="riskTypes"></div>
+<div class="sub">การดำเนินงาน</div><div class="options" id="followActions"></div>
+<div class="field"><label>หมายเหตุ / แผนติดตาม / วันนัด</label><textarea id="notes"></textarea></div>
+</section>
+<div class="panel actions no-print">
+<button type="submit">บันทึกข้อมูล</button><button type="button" class="secondary" id="resetBtn">ล้างแบบฟอร์ม</button><button type="button" class="secondary" id="cancelEditBtn">ยกเลิกการแก้ไข</button>
+</div>
+</form>
+
+<section class="panel" id="recordsPanel"><h2>รายการที่บันทึก</h2><div class="grid no-print" style="margin-bottom:12px"><div class="field wide"><label>ค้นหา (ชื่อ นามสกุล เลขบัตร หรือเบอร์โทร)</label><input id="searchBox" placeholder="พิมพ์เพื่อค้นหา"></div></div>
+<div class="tablewrap"><table><thead><tr><th>วันที่ตรวจ</th><th>ชื่อ-สกุล</th><th>อายุ</th><th>BMI</th><th>ผลคัดกรอง</th><th>หน่วยบริการ</th><th>จัดการ</th></tr></thead><tbody id="recordsBody"></tbody></table></div>
+<p class="muted">ข้อมูลโหมด Local เก็บไว้ในเบราว์เซอร์เครื่องนี้เท่านั้น หากล้างข้อมูลเบราว์เซอร์อาจสูญหาย ควรส่งออกข้อมูลสำรองเป็นระยะ</p></section>
+<div class="note">ข้อควรระวัง: ระบบนี้เป็นเครื่องมือบันทึกข้อมูลตามแบบฟอร์มที่แนบ ไม่ได้กำหนดเกณฑ์วินิจฉัยหรือคำนวณผลเสี่ยงทางการแพทย์โดยอัตโนมัติ ผู้ให้บริการต้องประเมินและสรุปผลตามแนวทางของหน่วยงานและมาตรฐานวิชาชีพ</div>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const groups={
+ parentDiseases:["เบาหวาน (DM)","ความดันโลหิตสูง (HT)","โรคเกาต์ (Gout)","ไตวายเรื้อรัง (CRF)","กล้ามเนื้อหัวใจตาย (MI)","ถุงลมโป่งพอง (COPD)","เส้นเลือดสมอง (Stroke)","ไม่ทราบ","ไม่มี","อื่น ๆ"],
+ siblingDiseases:["เบาหวาน (DM)","ความดันโลหิตสูง (HT)","โรคเกาต์ (Gout)","ไตวายเรื้อรัง (CRF)","กล้ามเนื้อหัวใจตาย (MI)","ถุงลมโป่งพอง (COPD)","เส้นเลือดสมอง (Stroke)","ไม่ทราบ","ไม่มี","อื่น ๆ"],
+ treatmentOptions:["รับการรักษาอยู่ / ปฏิบัติตามที่แพทย์แนะนำ","รับการรักษา แต่ไม่สม่ำเสมอ","เคยรักษา ขณะนี้ไม่รักษา / หายาทานเอง"],
+ smokeOptions:["สูบ","ไม่สูบ","เคยสูบแต่เลิกแล้ว"],
+ alcoholOptions:["ดื่ม","ไม่ดื่ม","เคยดื่มแต่เลิกแล้ว"],
+ exerciseOptions:["ออกกำลังกายทุกวัน ครั้งละ 30 นาที","ออกกำลังกายสัปดาห์ละมากกว่า 3 ครั้ง ๆ ละ 30 นาที สม่ำเสมอ","ออกกำลังกายสัปดาห์ละ 3 ครั้ง ครั้งละ 30 นาที สม่ำเสมอ","ออกกำลังกายน้อยกว่าสัปดาห์ละ 3 ครั้ง","ไม่ออกกำลังกายเลย"],
+ foodOptions:["หวาน","เค็ม","มัน","ไม่ชอบทุกข้อ"],
+ lipidDone:["ตรวจ","ไม่ตรวจ"],
+ screenResult:["ไม่พบความเสี่ยง","มีความเสี่ยงเบื้องต้นต่อโรค","ป่วยด้วยโรคเรื้อรัง"],
+ riskTypes:["DM","HT","Stroke","Obesity"],
+ followActions:["ให้คำแนะนำการดูแลตนเอง และตรวจคัดกรองซ้ำทุก 1 ปี","ลงทะเบียนกลุ่มเสี่ยงต่อกลุ่มโรค Metabolic และแนะนำเข้าโครงการปรับเปลี่ยนพฤติกรรม","ส่งต่อเพื่อรักษา"]
+};
+const history=[["dm","2.1 โรคเบาหวาน (DM)"],["ht","2.2 โรคความดันโลหิตสูง (HT)"],["liver","2.3 โรคตับ"],["paralysis","2.4 โรคอัมพาต"],["heart","2.5 โรคหัวใจ"],["lipid","2.6 ไขมันในเลือดผิดปกติ"],["footWound","2.7 แผลที่เท้า/ตัดขา (จากเบาหวาน)"],["birthWeight","2.8 คลอดบุตรน้ำหนักเกิน 4 กิโลกรัม"],["thirst","2.9 ดื่มน้ำบ่อยและมาก"],["nightUrine","2.10 ปัสสาวะกลางคืน 3 ครั้งขึ้นไป"],["hungryThin","2.11 กินจุแต่ผอมลง"],["weightLoss","2.12 น้ำหนักลด / อ่อนเพลีย"],["lipWound","2.13 เป็นแผลริมฝีปากบ่อยและหายยาก"],["itch","2.14 คันตามผิวหนังและอวัยวะสืบพันธุ์"],["blurred","2.15 ตาพร่ามัว ต้องเปลี่ยนแว่นบ่อย"],["numb","2.16 ชาปลายมือปลายเท้าโดยไม่ทราบสาเหตุ"]];
+function addOptions(id,items,type="checkbox"){ $(id).innerHTML=items.map((v,i)=>`<label><input type="${type}" name="${id}" value="${v}"> ${v}</label>`).join("");}
+Object.entries(groups).forEach(([k,v])=>addOptions(k,v,k==="treatmentOptions"||k==="smokeOptions"||k==="alcoholOptions"||k==="lipidDone"||k==="screenResult"?"radio":"checkbox"));
+$("historyFields").innerHTML=history.map(([k,v])=>`<div class="field"><label>${v}</label><select id="h_${k}"><option value="">-- เลือก --</option><option>มี</option><option>ไม่มี</option>${["dm","ht","liver","paralysis","heart","lipid"].includes(k)?'<option>ไม่เคยตรวจ</option>':""}</select></div>`).join("");
+$("lipidFields").innerHTML=["Total Cholesterol","HDL","LDL","Triglyceride"].map((v,i)=>`<div class="field"><label>${v} (mg/dL)</label><input id="lipid${i}" type="number" step="0.1"><select id="lipidStatus${i}"><option value="">ผลประเมิน</option><option>ปกติ</option><option>ผิดปกติ</option></select></div>`).join("");
+const fieldIds=[...document.querySelectorAll("input[id],select[id],textarea[id]")].map(x=>x.id).filter(x=>x&&x!=="recordId"&&x!=="searchBox");
+function selected(name){return [...document.querySelectorAll(`input[name="${name}"]:checked`)].map(x=>x.value)}
+function setSelected(name,values){document.querySelectorAll(`input[name="${name}"]`).forEach(x=>x.checked=(values||[]).includes(x.value))}
+function getData(){let d={};fieldIds.forEach(id=>d[id]=$(id)?.value??"");Object.keys(groups).forEach(k=>d[k]=selected(k));d.history={};history.forEach(([k])=>d.history[k]=$("h_"+k).value);d.savedAt=new Date().toISOString();return d}
+function setData(d){fieldIds.forEach(id=>{if($(id)&&d[id]!==undefined)$(id).value=d[id]});Object.keys(groups).forEach(k=>setSelected(k,d[k]));history.forEach(([k])=>$("h_"+k).value=d.history?.[k]||"");calc()}
+function localRecords(){try{return JSON.parse(localStorage.getItem("metabolicRecords")||"[]")}catch(e){return []}}
+function storeLocal(rows){localStorage.setItem("metabolicRecords",JSON.stringify(rows))}
+function gasMode(){return !!(window.google&&google.script&&google.script.run)}
+function msg(s){$("status").textContent=s;$("status").style.display="block";setTimeout(()=>$("status").style.display="none",4500)}
+function calc(){let w=Number($("weight").value),h=Number($("height").value);$("bmi").value=w>0&&h>0?(w/((h/100)**2)).toFixed(2):"";let a=Number($("bp1sys").value),b=Number($("bp2sys").value),c=Number($("bp1dia").value),d=Number($("bp2dia").value);$("bpAvgSys").value=a&&b?((a+b)/2).toFixed(0):a||b||"";$("bpAvgDia").value=c&&d?((c+d)/2).toFixed(0):c||d||""}
+["weight","height","bp1sys","bp1dia","bp2sys","bp2dia"].forEach(id=>$(id).addEventListener("input",calc));
+function render(rows=localRecords()){$("recordsBody").innerHTML=rows.map(r=>`<tr><td>${esc(r.screenDate)}</td><td>${esc((r.firstName||"")+" "+(r.lastName||""))}</td><td>${esc(r.age)}</td><td>${esc(r.bmi)}</td><td>${esc((r.screenResult||[]).join(", ")+" "+(r.riskTypes||[]).join(", "))}</td><td>${esc(r.serviceUnit)}</td><td><button class="smallbtn secondary" onclick="editRec('${r.recordId}')">แก้ไข</button><button class="smallbtn danger" onclick="deleteRec('${r.recordId}')">ลบ</button></td></tr>`).join("")||'<tr><td colspan="7">ยังไม่มีข้อมูล</td></tr>'}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function reset(){ $("screenForm").reset();$("recordId").value="";calc()}
+$("screenForm").addEventListener("submit",e=>{e.preventDefault();let d=getData();d.recordId=$("recordId").value||("M"+Date.now());if(gasMode()){google.script.run.withSuccessHandler(r=>{msg(r.message||"บันทึกข้อมูลแล้ว");reset();loadRecords()}).withFailureHandler(e=>msg("บันทึกไม่สำเร็จ: "+e.message)).saveRecord(d)}else{let rows=localRecords(),i=rows.findIndex(x=>x.recordId===d.recordId);if(i>=0)rows[i]=d;else rows.unshift(d);storeLocal(rows);msg("บันทึกข้อมูลในเบราว์เซอร์แล้ว");reset();render() }});
+function loadRecords(){if(gasMode()){google.script.run.withSuccessHandler(rows=>render(rows)).withFailureHandler(e=>msg(e.message)).getRecords()}else render()}
+window.editRec=id=>{let apply=d=>{setData(d);$("recordId").value=id;window.scrollTo({top:0,behavior:"smooth"})};if(gasMode())google.script.run.withSuccessHandler(apply).getRecord(id);else{let d=localRecords().find(x=>x.recordId===id);if(d)apply(d)}};
+window.deleteRec=id=>{if(!confirm("ยืนยันลบรายการนี้หรือไม่?"))return;if(gasMode())google.script.run.withSuccessHandler(r=>{msg(r.message);loadRecords()}).deleteRecord(id);else{storeLocal(localRecords().filter(x=>x.recordId!==id));render()}};
+$("newBtn").onclick=()=>{reset();window.scrollTo({top:0,behavior:"smooth"})};$("resetBtn").onclick=reset;$("cancelEditBtn").onclick=reset;$("syncBtn").onclick=()=>loadRecords();$("printBtn").onclick=()=>window.print();
+$("searchBox").addEventListener("input",e=>{let q=e.target.value.toLowerCase();render(localRecords().filter(r=>[r.firstName,r.lastName,r.citizenId,r.phone].join(" ").toLowerCase().includes(q)))});
+$("exportBtn").onclick=()=>{let rows=localRecords();if(!rows.length){msg("ไม่มีข้อมูลสำหรับส่งออก");return}let keys=[...new Set(rows.flatMap(Object.keys))];let csv=[keys.join(","),...rows.map(r=>keys.map(k=>'"'+String(typeof r[k]==="object"?JSON.stringify(r[k]):r[k]??"").replace(/"/g,'""')+'"').join(","))].join("\r\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="metabolic_screening.csv";a.click();URL.revokeObjectURL(a.href)};
+$("modeLabel").textContent=gasMode()?"เชื่อมต่อ Google Apps Script":"โหมดจัดเก็บในเครื่อง (Local)";loadRecords();
+</script>
+</body></html>
